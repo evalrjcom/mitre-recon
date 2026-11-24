@@ -1,0 +1,13 @@
+# Kali remote-desktop lab image: XFCE + TigerVNC + noVNC, multi-user in one container.
+FROM docker.io/kalilinux/kali-rolling:latest
+ARG KALI_META="kali-linux-core"
+ENV DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ${KALI_META} xfce4 xfce4-terminal dbus-x11 x11-xserver-utils \
+      tigervnc-standalone-server tigervnc-tools novnc websockify \
+      sudo procps passwd ca-certificates fonts-dejavu-core firefox-esr \
+ && apt-get clean && rm -rf /var/lib/apt/lists/*
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod 755 /usr/local/bin/entrypoint.sh
+VOLUME ["/home"]
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

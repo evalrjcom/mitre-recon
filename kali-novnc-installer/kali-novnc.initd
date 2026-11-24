@@ -1,0 +1,17 @@
+#!/sbin/openrc-run
+name="kali-novnc"
+description="Kali multi-user noVNC container (podman)"
+: ${CONTAINER_NAME:=kali-novnc}
+depend() { need net cgroups; after firewall; before nginx; }
+start() {
+  ebegin "Starting $CONTAINER_NAME"
+  podman start "$CONTAINER_NAME" >/dev/null; eend $?
+}
+stop() {
+  ebegin "Stopping $CONTAINER_NAME"
+  podman stop -t 15 "$CONTAINER_NAME" >/dev/null; eend $?
+}
+status() {
+  [ "$(podman inspect -f '{{.State.Running}}' "$CONTAINER_NAME" 2>/dev/null)" = true ] \
+    && { einfo "running"; return 0; } || { einfo "stopped"; return 3; }
+}
