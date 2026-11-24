@@ -1,0 +1,3 @@
+# Optional but recommended. reconmap.py runs with the standard library alone.
+rich>=13.0.0
+requests>=2.31.0
