@@ -1,0 +1,134 @@
+name: links-static-musl
+
+on:
+  push:
+    branches: [main]
+    paths: ['links-static-musl/**', '.github/workflows/links-static.yml']
+    tags: ['links-static-v*']
+  pull_request:
+    paths: ['links-static-musl/**', '.github/workflows/links-static.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: links-static-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax check (POSIX sh)
+        run: |
+          set -eu
+          for f in links-static-musl/*.sh; do
+            echo "== $f"
+            sh -n "$f"
+          done
+      - name: shellcheck (errors fail the job)
+        run: shellcheck -s sh -S error links-static-musl/*.sh
+      - name: shellcheck (warnings, informational)
+        continue-on-error: true
+        run: shellcheck -s sh -S warning links-static-musl/*.sh
+
+  build:
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential perl musl-tools curl ca-certificates linux-libc-dev
+
+      - name: Build (musl-gcc, static)
+        working-directory: links-static-musl
+        run: |
+          set -eu
+          sh build_links_static_v1.sh
+          ls -l links-out
+
+      - name: Verify the package
+        working-directory: links-static-musl
+        run: |
+          set -eu
+          t="$(ls links-out/*.tar.gz)"
+          echo "package: $t"
+          rm -rf verify && mkdir verify
+          tar -xzf "$t" -C verify
+          d="$(find verify -mindepth 1 -maxdepth 1 -type d)"
+          bin="$d/links"
+
+          file "$bin"
+          if readelf -d "$bin" 2>/dev/null | grep -q NEEDED; then
+            echo "FAIL: dynamic dependencies present" >&2; exit 1
+          fi
+          if strings "$bin" | grep -q 'GLIBC_'; then
+            echo "FAIL: glibc symbols present" >&2; exit 1
+          fi
+          # zlib must be linked in (Links then accepts gzip/deflate responses).
+          strings "$bin" | grep -qE 'inflate 1\.[0-9]' || { echo "FAIL: zlib not linked" >&2; exit 1; }
+
+          for f in links links-color cacert.pem SHA256SUMS README.txt \
+                   docs/links_static_v1_program_description.md \
+                   docs/links_static_v1_admin_guide.md \
+                   docs/links_static_v1_user_guide.md; do
+            [ -e "$d/$f" ] || { echo "FAIL: package is missing $f" >&2; exit 1; }
+          done
+          ( cd "$d" && sha256sum -c SHA256SUMS )
+
+          "$d/links" -version
+
+          # example.com wording has changed before; accept either phrase.
+          marker='example domain|documentation examples'
+
+          echo "--- TLS: must succeed through the launcher (bundled CA only)"
+          page="$(timeout 90 "$d/links-color" -ssl.certificates 2 -dump https://example.com 2>&1 || true)"
+          echo "$page" | head -n 8
+          echo "$page" | grep -qiE "$marker" || { echo "FAIL: HTTPS fetch did not return the page" >&2; exit 1; }
+
+          echo "--- TLS: must FAIL when no trusted roots are available"
+          bad="$(SSL_CERT_FILE=/dev/null SSL_CERT_DIR=/nonexistent timeout 90 "$d/links" -ssl.certificates 2 -dump https://example.com 2>&1 || true)"
+          echo "$bad" | head -n 3
+          if echo "$bad" | grep -qiE "$marker"; then
+            echo "FAIL: certificate verification is not being enforced" >&2; exit 1
+          fi
+          echo "certificate verification enforced"
+
+          echo "--- launcher works through a symlink"
+          mkdir -p lnk && ln -sf "$(cd "$d" && pwd)/links-color" lnk/links
+          lnk/links -version
+
+          cd links-out
+          sha256sum -- *.tar.gz > SHA256SUMS-x86_64.txt
+          cat SHA256SUMS-x86_64.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: links-static-x86_64
+          path: |
+            links-static-musl/links-out/*.tar.gz
+            links-static-musl/links-out/SHA256SUMS-*.txt
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/links-static-v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: out/*
