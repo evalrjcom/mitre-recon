@@ -42,6 +42,26 @@ SRC_DIR=$HOME/src sh build_lynx_static_v6.sh   # use pre-downloaded tarballs
 
 Output: `./lynx-out/lynx-<version>-static-<arch>.tar.gz`.
 
+## GitHub Actions
+
+`.github/workflows/lynx-static.yml` runs on changes to this folder, on pull
+requests, and on demand (Actions tab, "Run workflow"; you can set `lynx_ver`
+and `openssl_ver`).
+
+1. **lint**: `sh -n` and shellcheck on the scripts (shellcheck errors fail the job).
+2. **build**: runs `build_lynx_static_v6.sh` for `x86_64` and `i686` in an Alpine
+   container, then checks the package: static ELF with no dynamic section and no
+   glibc symbols, all expected files present, `lynx -version`, an HTTPS fetch of
+   `https://example.com` that must succeed with the bundled CA file, and the same
+   fetch with no trusted roots that must fail. The tarball and a
+   `SHA256SUMS-<arch>.txt` are uploaded as artifacts.
+3. **release**: pushing a tag named `lynx-static-v*` (for example
+   `lynx-static-v6.0`) attaches the tarballs and checksums to a GitHub release.
+
+The workflow builds Lynx 2.9.3, the script's default, so its tarball differs
+from the prebuilt 2.9.0 package committed here. Its first run is also the first
+end-to-end run of `build_lynx_static_v6.sh`.
+
 ## Status and limits
 
 - The prebuilt tarball is Lynx 2.9.0, not 2.9.3: it was built where the

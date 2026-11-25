@@ -1,0 +1,134 @@
+name: lynx-static-musl
+
+on:
+  push:
+    branches: [main]
+    paths: ['lynx-static-musl/**', '.github/workflows/lynx-static.yml']
+    tags: ['lynx-static-v*']
+  pull_request:
+    paths: ['lynx-static-musl/**', '.github/workflows/lynx-static.yml']
+  workflow_dispatch:
+    inputs:
+      lynx_ver:
+        description: 'Lynx version to build (blank = script default)'
+        required: false
+        default: ''
+      openssl_ver:
+        description: 'OpenSSL version to build (blank = script default)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lynx-static-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax check (POSIX sh)
+        run: |
+          set -eu
+          for f in lynx-static-musl/*.sh; do
+            echo "== $f"
+            sh -n "$f"
+          done
+      - name: shellcheck (errors fail the job)
+        run: shellcheck -s sh -S error lynx-static-musl/*.sh
+      - name: shellcheck (warnings, informational)
+        continue-on-error: true
+        run: shellcheck -s sh -S warning lynx-static-musl/*.sh
+
+  build:
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, i686]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build (Alpine/musl container via Docker)
+        working-directory: lynx-static-musl
+        env:
+          ARCH: ${{ matrix.arch }}
+          # Blank inputs must not override the script's pinned defaults.
+          IN_LYNX_VER: ${{ github.event.inputs.lynx_ver }}
+          IN_OPENSSL_VER: ${{ github.event.inputs.openssl_ver }}
+        run: |
+          set -eu
+          [ -z "$IN_LYNX_VER" ]    || export LYNX_VER="$IN_LYNX_VER"
+          [ -z "$IN_OPENSSL_VER" ] || export OPENSSL_VER="$IN_OPENSSL_VER"
+          sh build_lynx_static_v6.sh
+          ls -l lynx-out
+
+      - name: Verify the binary
+        working-directory: lynx-static-musl
+        run: |
+          set -eu
+          t="$(ls lynx-out/*.tar.gz)"
+          echo "package: $t"
+          rm -rf verify && mkdir verify
+          tar -xzf "$t" -C verify
+          d="$(find verify -mindepth 1 -maxdepth 1 -type d)"
+          bin="$d/bin/lynx.bin"
+
+          file "$bin"
+          if readelf -d "$bin" 2>/dev/null | grep -q NEEDED; then
+            echo "FAIL: dynamic dependencies present" >&2; exit 1
+          fi
+          if strings "$bin" | grep -q 'GLIBC_'; then
+            echo "FAIL: glibc symbols present" >&2; exit 1
+          fi
+
+          for f in lynx lynx.cfg lynx.lss cacert.pem share/terminfo share/lynx_help; do
+            [ -e "$d/$f" ] || { echo "FAIL: package is missing $f" >&2; exit 1; }
+          done
+
+          "$d/lynx" -version
+
+          echo "--- TLS: must succeed with the bundled CA file"
+          page="$(timeout 90 "$d/lynx" -dump -nolist -connect_timeout=30 https://example.com 2>&1 || true)"
+          echo "$page" | head -n 8
+          echo "$page" | grep -qi 'example domain' || { echo "FAIL: HTTPS fetch did not return the page" >&2; exit 1; }
+
+          echo "--- TLS: must FAIL when no trusted roots are available"
+          bad="$(SSL_CERT_FILE=/dev/null timeout 90 "$d/lynx" -dump -nolist -connect_timeout=30 https://example.com 2>&1 || true)"
+          if echo "$bad" | grep -qi 'example domain'; then
+            echo "FAIL: certificate verification is not being enforced" >&2; exit 1
+          fi
+          echo "certificate verification enforced"
+
+          cd lynx-out
+          sha256sum -- *.tar.gz > SHA256SUMS-${{ matrix.arch }}.txt
+          cat SHA256SUMS-${{ matrix.arch }}.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lynx-static-${{ matrix.arch }}
+          path: |
+            lynx-static-musl/lynx-out/*.tar.gz
+            lynx-static-musl/lynx-out/SHA256SUMS-*.txt
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/lynx-static-v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: out/*
