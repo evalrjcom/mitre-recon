@@ -1,0 +1,75 @@
+name: Compare Jesus-Centric KJV (with vs without lemmas)
+
+on:
+  push:
+    paths:
+      - 'jesus-centric-kjv/**'
+      - '.github/workflows/compare-kjv.yml'
+  pull_request:
+    paths:
+      - 'jesus-centric-kjv/**'
+  workflow_dispatch:
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Prepare directories and source
+        run: |
+          mkdir -p jesus-centric-kjv/input jesus-centric-kjv/output/compare
+          if [ ! -f jesus-centric-kjv/input/kjv_gutenberg_10900.txt ]; then
+            curl -fsSL -o jesus-centric-kjv/input/kjv_gutenberg_10900.txt \
+              "https://raw.githubusercontent.com/GITenberg/The-King-James-Bible_10900/master/10900.txt"
+          fi
+
+      - name: Run processor WITHOUT lemma list
+        run: |
+          # Temporarily hide lemma file
+          if [ -f jesus-centric-kjv/messianic_lemmas.json ]; then
+            mv jesus-centric-kjv/messianic_lemmas.json /tmp/lemmas.bak
+          fi
+          python3 jesus-centric-kjv/jesus_centric_kjv_processor.py \
+            jesus-centric-kjv/input/kjv_gutenberg_10900.txt \
+            jesus-centric-kjv/output/compare/without_lemmas.txt
+          # Restore
+          if [ -f /tmp/lemmas.bak ]; then
+            mv /tmp/lemmas.bak jesus-centric-kjv/messianic_lemmas.json
+          fi
+
+      - name: Run processor WITH lemma list
+        run: |
+          python3 jesus-centric-kjv/jesus_centric_kjv_processor.py \
+            jesus-centric-kjv/input/kjv_gutenberg_10900.txt \
+            jesus-centric-kjv/output/compare/with_lemmas.txt
+
+      - name: Compare outputs
+        run: |
+          echo "## Comparison: with vs without lemma list" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if diff -q jesus-centric-kjv/output/compare/without_lemmas.txt \
+                     jesus-centric-kjv/output/compare/with_lemmas.txt > /dev/null; then
+            echo "No differences found." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Differences detected. Summary:" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            diff -u jesus-centric-kjv/output/compare/without_lemmas.txt \
+                    jesus-centric-kjv/output/compare/with_lemmas.txt | head -100 >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Full diff line count: $(diff jesus-centric-kjv/output/compare/without_lemmas.txt jesus-centric-kjv/output/compare/with_lemmas.txt | wc -l)" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload comparison artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: kjv-comparison
+          path: jesus-centric-kjv/output/compare/
