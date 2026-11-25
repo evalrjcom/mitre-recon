@@ -41,7 +41,9 @@ The script verifies OpenSSL and the CA bundle against their published SHA-256 fi
 
 Files needed with `SRC_DIR`: `zlib-1.3.1.tar.gz`, `openssl-3.5.4.tar.gz`, `ncurses-6.5.tar.gz`, `lynx2.9.3.tar.gz` and `cacert.pem`. Network needs: GitHub (zlib, OpenSSL), a GNU mirror or invisible-mirror.net (ncurses), invisible-island.net or invisible-mirror.net (Lynx), and curl.se (CA bundle).
 
-v6 has been syntax-checked but not run end to end. The delivered tarball was built with an equivalent manual procedure (`local_build_v1.sh`) on Ubuntu with `musl-tools`.
+On 25 November 2026 the GitHub Actions workflow ran v6 end to end on Ubuntu runners (Docker, Alpine 3.20) and built Lynx 2.9.3 for `x86_64` and `i686`; the package passed the static-binary and certificate-verification checks (the workflow is described in `README.md`). Those binaries ran on the runner's modern kernel, not on glibc 2.8. The prebuilt tarball in this folder was built earlier with an equivalent manual procedure (`local_build_v1.sh`) on Ubuntu with `musl-tools`.
+
+While building, ncurses prints `ln: failed to create symbolic link ... usr/lib/terminfo: No such file or directory`, and the script's own end-of-build TLS test can print `skipped/failed` even when HTTPS works (it looks for the text "example domain", which example.com no longer prints). Both are cosmetic; the package is fine.
 
 ## Configuration
 

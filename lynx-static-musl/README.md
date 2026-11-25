@@ -59,8 +59,8 @@ and `openssl_ver`).
    `lynx-static-v6.0`) attaches the tarballs and checksums to a GitHub release.
 
 The workflow builds Lynx 2.9.3, the script's default, so its tarball differs
-from the prebuilt 2.9.0 package committed here. Its first run is also the first
-end-to-end run of `build_lynx_static_v6.sh`.
+from the prebuilt 2.9.0 package committed here. The 25 November 2026 run built
+Lynx 2.9.3 (OpenSSL 3.5.4, ncurses 6.5) for both architectures and passed every check.
 
 ## Status and limits
 
@@ -69,8 +69,11 @@ end-to-end run of `build_lynx_static_v6.sh`.
 - Tested: statically linked, no glibc symbols, TLS 1.3 handshake with
   certificate verification (and rejection of an untrusted chain), UTF-8 output.
 - Not tested: running on glibc 2.8 or an old kernel (musl expects roughly
-  Linux 2.6.32 or newer), and a normal un-proxied HTTPS page.
-- `build_lynx_static_v6.sh` is syntax-checked but has not been run end to end.
+  Linux 2.6.32 or newer), and an un-proxied HTTPS fetch with this 2.9.0 binary (the CI
+  build of 2.9.3 did fetch a page that way).
+- `build_lynx_static_v6.sh` has been run end to end only on GitHub's Ubuntu runners
+  (Docker, Alpine 3.20), where it built and passed the checks above for `x86_64` and
+  `i686`. Those binaries were run on the runner's modern kernel, not on glibc 2.8.
 - x86_64 only for the prebuilt package.
 - The CA bundle is a snapshot of the Mozilla roots from 1 October 2026; refresh
   `cacert.pem` regularly, and rebuild when OpenSSL publishes security fixes.

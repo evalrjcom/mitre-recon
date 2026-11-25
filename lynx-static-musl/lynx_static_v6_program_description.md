@@ -55,7 +55,7 @@ The build script defaults to Lynx 2.9.3, the 27 May 2026 stable release. The del
 - **Architecture:** x86_64 only. A 32-bit machine needs a separate build (`ARCH=i686`).
 - **Old kernels:** musl is expected to need Linux 2.6.32 or newer. This binary has not been run on glibc 2.8 or on an old kernel.
 - **Version:** 2.9.0 lacks fixes made in 2.9.1 to 2.9.3. Rebuild with the script to get 2.9.3.
-- **Build script:** `build_lynx_static_v6.sh` is syntax-checked but has not been run end to end.
+- **Build script:** `build_lynx_static_v6.sh` has been run end to end only on GitHub's Ubuntu runners (see the README), not on an old system.
 - **Name lookups:** musl reads `/etc/hosts` and `/etc/resolv.conf` directly and ignores `nsswitch.conf`, so NIS or LDAP host lookups will not work.
 - **Compression:** gzip responses are supported through zlib. bzip2 and brotli are not built in.
 - **Web content:** like all Lynx builds, no images, JavaScript or CSS layout.
