@@ -1,8 +1,8 @@
-# Static Links for Legacy Linux (v1): Program description
+# Static Links for Legacy Linux (v2): Program description
 
-This package is a text-mode web browser (Links) with modern TLS that runs on an old Linux machine, including one with glibc 2.8, because it is one static file that needs nothing from the host's libraries. A companion build script, `build_links_static_v1.sh`, rebuilds it from source. Both live in the `links-static-musl` folder of the `evalrjcom/mitre-recon` repository on GitHub.
+This package is a text-mode web browser (Links) with modern TLS that runs on an old Linux machine, including one with glibc 2.8, because it is one static file that needs nothing from the host's libraries. A companion build script, `build_links_static_v2.sh`, rebuilds it from source. Both live in the `links-static-musl` folder of the `evalrjcom/mitre-recon` repository on GitHub.
 
-Related guides: [Administrator guide](links_static_v1_admin_guide.md), [User guide](links_static_v1_user_guide.md).
+Related guides: [Administrator guide](links_static_v2_admin_guide.md), [User guide](links_static_v2_user_guide.md).
 
 ## Why it exists
 
@@ -12,9 +12,9 @@ A Links built on a current distribution needs a newer glibc than 2.8 provides, s
 
 | File | Purpose |
 | --- | --- |
-| `links-2.29-static-x86_64-musl_pkg1.tar.gz` | Prebuilt x86_64 package. |
-| `build_links_static_v1.sh` | Build script (POSIX sh). Builds zlib, OpenSSL and Links against musl, packages the result and checks it. |
-| `links_static_v1_*.md` | These guides. |
+| `links-2.29-static-x86_64-musl_pkg2.tar.gz` | Prebuilt x86_64 package. |
+| `build_links_static_v2.sh` | Build script (POSIX sh). Builds zlib, OpenSSL and Links against musl, packages the result and checks it. |
+| `links_static_v2_*.md` | These guides. |
 | `README.md` | Short overview of the folder. |
 
 ## What is in the tarball
@@ -36,6 +36,7 @@ A Links built on a current distribution needs a newer glibc than 2.8 provides, s
 | OpenSSL | 3.5.4 | Long-term-support line. TLS 1.2 and 1.3. SHA-256 matches the value published on the OpenSSL release page. |
 | zlib | 1.3.1 | Lets Links accept gzip and deflate responses. |
 | musl libc | 1.2.4 | From Ubuntu 24.04's `musl-tools`. |
+| Compiler | GCC 14.2 | Package revision 2 was built with GCC 14.2 through `musl-gcc`. |
 | CA bundle | certifi 2026.11.20 | Mozilla roots, 113 certificates. |
 
 ## What it can and cannot do
@@ -78,4 +79,5 @@ Links is GPL v2 or later. OpenSSL 3.x is Apache 2.0. zlib is the zlib licence. m
 
 | Version | Notes |
 | --- | --- |
-| v1 | First release in this repository. Links 2.29, OpenSSL 3.5.4, zlib 1.3.1, IPv6 on, bundle-only trust in the launcher. |
+| v1 | First release in this repository. Links 2.29, OpenSSL 3.5.4, zlib 1.3.1, IPv6 on, bundle-only trust in the launcher. The build script failed on GitHub's runners (GCC 14). |
+| v2 | Build script fix: Links' `configure` no longer fails on GCC 14 and later (old implicit-int C is an error there; the script now pins `-std=gnu99` and downgrades those errors). Package revision 2, built with GCC 14.2. The binary's features are unchanged. |

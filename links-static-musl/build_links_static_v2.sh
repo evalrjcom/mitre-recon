@@ -1,5 +1,5 @@
 #!/bin/sh
-# build_links_static_v1.sh
+# build_links_static_v2.sh
 #
 # Builds the Links text-mode web browser (links.twibright.com) with OpenSSL TLS and
 # zlib as a fully STATIC binary linked against musl libc, so it runs on any x86_64
@@ -7,16 +7,16 @@
 # libssl or zlib.
 #
 # Usage:
-#   sh build_links_static_v1.sh                 # build + package into ./links-out
-#   OUT=/some/dir sh build_links_static_v1.sh   # output directory
-#   SRC_DIR=/path sh build_links_static_v1.sh   # use pre-downloaded tarballs found there:
+#   sh build_links_static_v2.sh                 # build + package into ./links-out
+#   OUT=/some/dir sh build_links_static_v2.sh   # output directory
+#   SRC_DIR=/path sh build_links_static_v2.sh   # use pre-downloaded tarballs found there:
 #                                               #   links-X.tar.bz2 (or links2_X.orig.tar.bz2)
 #                                               #   openssl-X.tar.gz  zlib-X.tar.gz  cacert.pem
-#   RUN_NET_TEST=1 sh build_links_static_v1.sh  # also fetch https://example.com with the
+#   RUN_NET_TEST=1 sh build_links_static_v2.sh  # also fetch https://example.com with the
 #                                               # bundled CA (must pass) and with no CA (must fail)
 #   LINKS_VER=2.30 LINKS_SHA256=<hash> sh ...   # other versions need their own pinned hash
 #
-# Output: $OUT/links-<ver>-static-<arch>-musl_pkg1.tar.gz  (+ unpacked directory)
+# Output: $OUT/links-<ver>-static-<arch>-musl_pkg2.tar.gz  (+ unpacked directory)
 #
 # Toolchain (one of):
 #   * Debian/Ubuntu:  apt-get install build-essential perl musl-tools curl
@@ -30,7 +30,7 @@ umask 022
 LINKS_VER="${LINKS_VER:-2.29}"
 OPENSSL_VER="${OPENSSL_VER:-3.5.4}"
 ZLIB_VER="${ZLIB_VER:-1.3.1}"
-PKG_REV="${PKG_REV:-1}"
+PKG_REV="${PKG_REV:-2}"
 
 [ "$LINKS_VER" = "2.29" ] && LINKS_SHA256="${LINKS_SHA256:-22aa96c0b38e1a6f8f7ed9d7a4167a47fc37246097759ef6059ecf8f9ead7998}"
 [ "$OPENSSL_VER" = "3.5.4" ] && OPENSSL_SHA256="${OPENSSL_SHA256:-967311f84955316969bdb1d8d4b983718ef42338639c621ec4c34fddef355e99}"
@@ -176,7 +176,12 @@ tar xjf "$DL/links.tar.bz2"
 LDIR="$(find "$BLD" -mindepth 1 -maxdepth 1 -type d -name 'links-*' | head -n 1)"
 [ -n "$LDIR" ] || die "Links source directory not found after unpacking"
 cd "$LDIR"
-CC="$CC" CPPFLAGS="-I$PFX/include $KINC" CFLAGS="-O2" LDFLAGS="-static -L$PFX/lib" LIBS="-lssl -lcrypto -lz" \
+# Links 2.29 is old K&R-style C and its autoconf probes use implicit int. GCC 14+ turns
+# those into hard errors (and GCC 15 defaults to C23, which drops K&R definitions), so
+# pin the dialect and downgrade the removed-by-default diagnostics back to warnings.
+# Unknown -Wno-error=... options are ignored by older compilers.
+LINKS_CFLAGS="-O2 -std=gnu99 -Wno-error=implicit-int -Wno-error=implicit-function-declaration -Wno-error=int-conversion -Wno-error=incompatible-pointer-types"
+CC="$CC" CPPFLAGS="-I$PFX/include $KINC" CFLAGS="$LINKS_CFLAGS" LDFLAGS="-static -L$PFX/lib" LIBS="-lssl -lcrypto -lz" \
 ./configure --prefix=/usr/local --with-ssl="$PFX" --with-zlib \
   --without-x --without-svgalib --without-directfb --without-libjpeg --without-libtiff \
   --without-librsvg --without-fb --disable-graphics \
@@ -217,12 +222,12 @@ exec "$D/links" "$@"
 EOF
 chmod 755 "$PKG/links-color"
 for g in program_description admin_guide user_guide; do
-  [ -f "$SELF_DIR/links_static_v1_$g.md" ] && cp "$SELF_DIR/links_static_v1_$g.md" "$PKG/docs/"
+  [ -f "$SELF_DIR/links_static_v2_$g.md" ] && cp "$SELF_DIR/links_static_v2_$g.md" "$PKG/docs/"
 done
 cat >"$PKG/README.txt" <<EOF
 Links $LINKS_VER + OpenSSL $OPENSSL_VER + zlib $ZLIB_VER, static musl build ($ARCH), package pkg$PKG_REV.
 Run ./links-color https://example.org     (use the wrapper: it supplies the CA file)
-Guides are in docs/. Built by build_links_static_v1.sh.
+Guides are in docs/. Built by build_links_static_v2.sh.
 Source sha256:
   links $LINKS_VER     $(sha256sum "$DL/links.tar.bz2" | cut -d' ' -f1)
   openssl $OPENSSL_VER  $(sha256sum "$DL/openssl.tar.gz" | cut -d' ' -f1)

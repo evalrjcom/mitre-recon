@@ -54,7 +54,7 @@ jobs:
           KEEP_WORK: '1'   # keep the build tree so a failure can be diagnosed below
         run: |
           set -eu
-          sh build_links_static_v1.sh
+          sh build_links_static_v2.sh
           ls -l links-out
 
       - name: Show build logs on failure
@@ -89,9 +89,9 @@ jobs:
           strings "$bin" | grep -qE 'inflate 1\.[0-9]' || { echo "FAIL: zlib not linked" >&2; exit 1; }
 
           for f in links links-color cacert.pem SHA256SUMS README.txt \
-                   docs/links_static_v1_program_description.md \
-                   docs/links_static_v1_admin_guide.md \
-                   docs/links_static_v1_user_guide.md; do
+                   docs/links_static_v2_program_description.md \
+                   docs/links_static_v2_admin_guide.md \
+                   docs/links_static_v2_user_guide.md; do
             [ -e "$d/$f" ] || { echo "FAIL: package is missing $f" >&2; exit 1; }
           done
           ( cd "$d" && sha256sum -c SHA256SUMS )

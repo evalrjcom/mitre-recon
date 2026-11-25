@@ -1,6 +1,6 @@
-# Static Links for Legacy Linux (v1): User guide
+# Static Links for Legacy Linux (v2): User guide
 
-Links is a text-mode web browser. You drive it from the keyboard in a terminal. Overview: [Program description](links_static_v1_program_description.md). Install and settings: [Administrator guide](links_static_v1_admin_guide.md).
+Links is a text-mode web browser. You drive it from the keyboard in a terminal. Overview: [Program description](links_static_v2_program_description.md). Install and settings: [Administrator guide](links_static_v2_admin_guide.md).
 
 ## 1. Starting
 

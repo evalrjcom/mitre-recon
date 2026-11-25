@@ -1,6 +1,6 @@
-# Static Links for Legacy Linux (v1): Administrator guide
+# Static Links for Legacy Linux (v2): Administrator guide
 
-For whoever installs, configures, updates and rebuilds the package. Overview: [Program description](links_static_v1_program_description.md). Day-to-day use: [User guide](links_static_v1_user_guide.md).
+For whoever installs, configures, updates and rebuilds the package. Overview: [Program description](links_static_v2_program_description.md). Day-to-day use: [User guide](links_static_v2_user_guide.md).
 
 ## 1. Requirements
 
@@ -14,23 +14,23 @@ Per user:
 
 ```sh
 uname -m                                    # must print x86_64
-sha256sum links-2.29-static-x86_64-musl_pkg1.tar.gz
-tar xzf links-2.29-static-x86_64-musl_pkg1.tar.gz -C ~/
-~/links-2.29-static-x86_64-musl_pkg1/links-color -version
+sha256sum links-2.29-static-x86_64-musl_pkg2.tar.gz
+tar xzf links-2.29-static-x86_64-musl_pkg2.tar.gz -C ~/
+~/links-2.29-static-x86_64-musl_pkg2/links-color -version
 ```
 
 System-wide:
 
 ```sh
-tar xzf links-2.29-static-x86_64-musl_pkg1.tar.gz -C /opt
-chown -R root:root /opt/links-2.29-static-x86_64-musl_pkg1
-ln -s /opt/links-2.29-static-x86_64-musl_pkg1/links-color /usr/local/bin/links
+tar xzf links-2.29-static-x86_64-musl_pkg2.tar.gz -C /opt
+chown -R root:root /opt/links-2.29-static-x86_64-musl_pkg2
+ln -s /opt/links-2.29-static-x86_64-musl_pkg2/links-color /usr/local/bin/links
 ```
 
 Keep `links`, `links-color` and `cacert.pem` in the same directory. The launcher resolves symlinks, so the `/usr/local/bin/links` link above works. Verify files after any copy:
 
 ```sh
-cd /opt/links-2.29-static-x86_64-musl_pkg1 && sha256sum -c SHA256SUMS
+cd /opt/links-2.29-static-x86_64-musl_pkg2 && sha256sum -c SHA256SUMS
 ```
 
 ## 3. First-run check
@@ -102,10 +102,10 @@ The script builds zlib, OpenSSL and Links against musl, packages them and checks
 ```sh
 # Debian/Ubuntu build host
 apt-get install build-essential perl musl-tools curl linux-libc-dev
-sh build_links_static_v1.sh                      # output: ./links-out/
-OUT=$HOME/out sh build_links_static_v1.sh        # choose the output directory
-SRC_DIR=$HOME/src sh build_links_static_v1.sh    # use tarballs you already downloaded
-RUN_NET_TEST=1 sh build_links_static_v1.sh       # also fetch https://example.com (must pass with the bundle, must fail with no roots)
+sh build_links_static_v2.sh                      # output: ./links-out/
+OUT=$HOME/out sh build_links_static_v2.sh        # choose the output directory
+SRC_DIR=$HOME/src sh build_links_static_v2.sh    # use tarballs you already downloaded
+RUN_NET_TEST=1 sh build_links_static_v2.sh       # also fetch https://example.com (must pass with the bundle, must fail with no roots)
 ```
 
 `SRC_DIR` may hold `links-2.29.tar.bz2` (or `links2_2.29.orig.tar.bz2`), `openssl-3.5.4.tar.gz`, `zlib-1.3.1.tar.gz` and `cacert.pem`.
@@ -113,7 +113,7 @@ RUN_NET_TEST=1 sh build_links_static_v1.sh       # also fetch https://example.co
 What the script does:
 
 1. Downloads each source from a mirror list, then checks the pinned SHA-256 for Links, OpenSSL and zlib (it stops on a mismatch) and prints the CA bundle's hash. If `curl.se` is unreachable it takes the same roots from the `certifi` Python package.
-2. Builds static zlib, then static OpenSSL with `--openssldir=/etc/ssl`, then Links with `--with-ssl --with-zlib`, text mode only.
+2. Builds static zlib, then static OpenSSL with `--openssldir=/etc/ssl`, then Links with `--with-ssl --with-zlib`, text mode only. Links is compiled with `-std=gnu99` and with GCC's newer "this is now an error" diagnostics (implicit int, implicit function declarations, int and pointer conversions) downgraded to warnings, because Links 2.29 is old K&R-style C that GCC 14 and later refuse to configure otherwise.
 3. Checks that the binary has no dynamic section, no `GLIBC_` symbols and reports the right version.
 4. Packages `links`, `links-color`, `cacert.pem`, `SHA256SUMS`, `README.txt` and the guides found beside the script.
 
@@ -136,6 +136,7 @@ Bumping the package: when the build script gets a new version, rename the three 
 | `Illegal instruction` or exec format error | Not an x86_64 CPU | Use an x86_64 host |
 | `Permission denied` on `~/.links` | Directory owned by another user | Fix ownership or set `CONFIG_DIR` |
 | Build stops with `kernel headers not found` | `linux-libc-dev` missing | `apt-get install linux-libc-dev` |
+| Links `configure` stops with `C compiler cannot create executables` / `return type defaults to 'int'` | A v1 script on GCC 14 or later | Use the v2 script, which sets the needed flags |
 | Build stops with `checksum mismatch` | Corrupt or different download | Re-download; do not override the pin without checking the publisher's hash |
 
 ## 9. Uninstall and operations
