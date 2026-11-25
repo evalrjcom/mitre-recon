@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jesus-Centric KJV</title>
+  <style>
+    :root {
+      --bg: #0d0f12;
+      --surface: #161a1f;
+      --text: #e8e6e3;
+      --muted: #9a958c;
+      --accent: #c4a574;
+      --border: #2a2f36;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    header {
+      position: sticky;
+      top: 0;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 1.5rem;
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      flex-wrap: wrap;
+      z-index: 10;
+    }
+    h1 { margin: 0; font-size: 1.25rem; font-weight: 600; }
+    input[type="search"] {
+      flex: 1;
+      min-width: 200px;
+      padding: 0.5rem 0.75rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 4px;
+    }
+    button, .btn {
+      background: var(--accent);
+      color: #1a1a1a;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 600;
+      text-decoration: none;
+      display: inline-block;
+    }
+    button:hover, .btn:hover { filter: brightness(1.1); }
+    #status { color: var(--muted); font-size: 0.9rem; }
+    main {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 1.5rem;
+    }
+    .verse {
+      margin: 0.4rem 0;
+      padding: 0.25rem 0;
+    }
+    .verse-ref {
+      color: var(--accent);
+      font-weight: 600;
+      margin-right: 0.5rem;
+    }
+    mark {
+      background: #5c4a2a;
+      color: var(--text);
+      padding: 0 2px;
+    }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Jesus-Centric KJV</h1>
+    <input type="search" id="search" placeholder="Search text or reference..." />
+    <a class="btn" id="suggest" href="#" target="_blank">Suggest a change</a>
+    <span id="status">Loading…</span>
+  </header>
+  <main id="content"></main>
+
+  <script>
+    const REPO = "evalrjcom/mitre-recon";
+    const TXT_URL = "jesus_centric_kjv_all66.txt"; // relative; place file next to this page or adjust path
+    const contentEl = document.getElementById("content");
+    const searchEl = document.getElementById("search");
+    const statusEl = document.getElementById("status");
+    const suggestEl = document.getElementById("suggest");
+
+    let allVerses = [];
+
+    function parseLine(line) {
+      const m = line.match(/^(\d+:\d+)\s+(.*)/);
+      if (m) return { ref: m[1], text: m[2] };
+      return { ref: "", text: line };
+    }
+
+    function render(verses, query = "") {
+      const q = query.trim().toLowerCase();
+      contentEl.innerHTML = "";
+      let shown = 0;
+      verses.forEach(v => {
+        const hay = (v.ref + " " + v.text).toLowerCase();
+        if (q && !hay.includes(q)) return;
+        const div = document.createElement("div");
+        div.className = "verse";
+        let text = v.text;
+        if (q) {
+          const re = new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
+          text = text.replace(re, "<mark>$1</mark>");
+        }
+        div.innerHTML = (v.ref ? `<span class="verse-ref">${v.ref}</span>` : "") + text;
+        contentEl.appendChild(div);
+        shown++;
+      });
+      statusEl.textContent = q
+        ? `${shown} match${shown === 1 ? "" : "es"}`
+        : `${verses.length} lines loaded`;
+    }
+
+    function updateSuggestLink() {
+      const title = encodeURIComponent("Jesus reference suggestion");
+      const body = encodeURIComponent(
+        `**Book / Chapter:Verse:** \n\n` +
+        `**Current text:** \n\n` +
+        `**Suggested change:** \n\n` +
+        `**Reason:** \n`
+      );
+      suggestEl.href = `https://github.com/${REPO}/issues/new?title=${title}&body=${body}&labels=suggestion`;
+    }
+
+    async function load() {
+      try {
+        const res = await fetch(TXT_URL);
+        if (!res.ok) throw new Error(res.statusText);
+        const text = await res.text();
+        allVerses = text.split(/\r?\n/).map(parseLine).filter(v => v.text.trim());
+        render(allVerses);
+        updateSuggestLink();
+      } catch (err) {
+        statusEl.textContent = "Failed to load text. Place jesus_centric_kjv_all66.txt next to this page.";
+        console.error(err);
+      }
+    }
+
+    searchEl.addEventListener("input", () => render(allVerses, searchEl.value));
+    load();
+  </script>
+</body>
+</html>
