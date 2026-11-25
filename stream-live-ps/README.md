@@ -1,81 +1,54 @@
-# stream-live-ps — Windows PowerShell Twitch Streamer
+# stream-live-ps v3.2.0 - Windows PowerShell Twitch streamer
 
-**Version:** v3.1.0  
-**Platform:** Windows (PowerShell 5.1+)  
-**Companion to:** `stream_live.sh` (Alpine/ash, Linux)
+**Script:** `stream_live_v3.2.0.ps1`  |  **Platform:** Windows, PowerShell 5.1+  |  **Companion to:** `stream_live.sh` (Alpine/ash)
 
----
-
-## What It Does
-
-Captures your primary Windows desktop with FFmpeg's `gdigrab` and streams it to Twitch over RTMP, with:
-
-- Auto-reconnect + exponential backoff (5 → 10 → 20 → 40 → 60s)
-- Interruptible backoff sleeps — Ctrl+C responds instantly even during a 60s wait
-- Health monitor thread that **kills and restarts** a stalled ffmpeg (not just logs a warning)
-- Log rotation at ~5MB
-- Config sidecar (`stream_config.ps1`) for keeping secrets out of version control
-- Stream key validated before launch
-- Primary monitor bounds auto-detected via `System.Windows.Forms.Screen`
-- dshow audio (VB-Audio Virtual Cable) with video-only or abort fallback
-- Thread-safe log writer closed in `finally` — no file-handle leaks
-- `WaitForExit(timeout)` with force-kill on stall
-- Atomic double-cleanup guard (Ctrl+C + `finally` both safe)
-
----
+Captures the primary Windows desktop with FFmpeg `gdigrab` and streams it to Twitch over RTMP(S), supervised by a reconnect loop.
 
 ## Requirements
 
-| Tool | Purpose | Download |
-|------|---------|----------|
-| **FFmpeg** | Encode + stream | https://ffmpeg.org/download.html |
-| **TightVNC Server** *(optional)* | Remote desktop access | https://www.tightvnc.com/ |
-| **VB-Audio Virtual Cable** *(optional)* | Audio capture | https://vb-audio.com/Cable/ |
+| Tool | Purpose |
+|------|---------|
+| FFmpeg (full/GPL build, in `PATH` or `FfmpegPath`) | libx264 + aac + gdigrab (+ dshow for audio) |
+| VB-Audio Virtual Cable *(optional)* | Audio capture via DirectShow |
+| TightVNC Server *(optional)* | Remote desktop; opt-in with `EnableVnc` |
 
-FFmpeg must be in `PATH`.
-
----
-
-## Quick Start
-
-1. Set your stream key inside the script (or override in `stream_config.ps1`):
-   ```powershell
-   $TwitchStreamKey = "live_xxxxxxxxxxxxxxxxxxxx"
-   ```
-
-2. Run:
-   ```powershell
-   .\stream_live_v3.1.0.ps1
-   ```
-
-3. Stop with **Ctrl+C** — cleanup is immediate regardless of backoff state.
-
----
-
-## Config Sidecar
-
-Create `stream_config.ps1` in the same folder to override defaults without touching the main script:
+## Quick start
 
 ```powershell
-# stream_config.ps1
-$TwitchStreamKey = "live_your_real_key_here"
-$FPS             = 60
-$Bitrate         = "8000k"
-$AudioDevice     = "My Audio Device"
+.\stream_live_v3.2.0.ps1 -ListDevices      # find your audio device name
+.\stream_live_v3.2.0.ps1 -DryRun           # validate + print the ffmpeg command (key redacted)
+.\stream_live_v3.2.0.ps1                   # go live; Ctrl+C stops cleanly
 ```
 
----
+Stream key, in order of precedence: `TwitchStreamKey` in `stream_config.psd1`, then `$env:TWITCH_STREAM_KEY`, then a masked prompt.
+Copy `stream_config.example.psd1` to `stream_config.psd1` (git-ignored) to change defaults. It is a data-only file; unknown keys are rejected.
 
-## Key Differences from v3.0.0
+## Key changes v3.1.0 -> v3.2.0
 
-| Area | v3.0.0 | v3.1.0 |
-|------|--------|--------|
-| Health monitor | `Start-Job` (full PS process) | `System.Threading.Thread` (lightweight) |
-| Health monitor action | Log warning only | **Kill stalled ffmpeg** so loop restarts it |
-| Backoff sleep | `Start-Sleep` (blocks Ctrl+C up to 60s) | 500ms poll — Ctrl+C responds instantly |
-| Monitor geometry | `-offset_x 0 -offset_y 0` (re-evals every frame) | Auto-detected once at startup via `Screen.PrimaryScreen` |
-| ffmpeg arg quoting | Fragile regex with backtick quoting | Proper `\"` escaping, PS 5.1 compat |
-| Log writer lifetime | Leaked on start failure | Closed in `finally` block |
-| ffmpeg WaitForExit | No timeout (can hang forever) | 1s poll with `ShouldExit` / health-kill check |
-| Cleanup race | Could run twice on fast exits | Atomic `Interlocked.Exchange` guard |
-| Audio regex | Re-compiled on every call | Compiled once at startup |
+**Bugs fixed**
+- Script now pure ASCII. v3.1.0's UTF-8 em dashes inside strings broke parsing on Windows PowerShell 5.1.
+- Removed `lock (...)` (not PowerShell syntax).
+- Removed script-block delegates on raw threads / `CancelKeyPress` / Process events (no Runspace there). Async work moved into a compiled C# helper.
+- Two writers on one log file caused sharing violations; one thread-safe sink now, with rotation.
+- TightVNC start (`-controlservice -start`) exited at once and aborted the script; now `Start-Service` / `-run`. Port is verified, and only what the script started is stopped.
+- "Stale process cleanup" was documented but missing; implemented (same-key ffmpeg only).
+- `2>&1` on native commands threw under `$ErrorActionPreference='Stop'` (PS 5.1); native calls use captured Process I/O.
+- DPI scaling gave the wrong capture size; odd sizes broke yuv420p. Process is DPI-aware, sizes rounded to even.
+- `-reconnect*` flags do nothing for RTMP output; removed.
+- Stall detection now requires the frame counter to advance (log growth is meaningless: ffmpeg prints progress even when blocked).
+- Correct Windows argument quoting; ffmpeg launched by absolute path.
+- Crash loops abort after `MaxFastFailures`; ffmpeg cannot be orphaned (Job Object) and stops gracefully (`q`).
+
+**Security**
+- Stream key redacted from every log/console line (ffmpeg echoes the full URL; v3.1.0 logged it).
+- Key never printed on validation failure; env var / masked prompt supported.
+- Config is `.psd1` data (v3.1.0 dot-sourced a `.ps1`), validated and whitelisted.
+- Single-instance mutex per key. VNC is opt-in and warns if bound to all interfaces.
+
+**Behaviour changes to know about**
+- Default preset `veryfast` (was `ultrafast`), `BufSize` 12000k (was 6000k), VNC off, `VncPort` 5900, sidecar is `stream_config.psd1`.
+
+## Known limits
+- Stream key is still on ffmpeg's command line (visible to same-user/admin processes); RTMP (not RTMPS) sends it unencrypted.
+- gdigrab captures black on a locked workstation or disconnected RDP session.
+- Not executed on a live Windows host or against Twitch in this review (no PowerShell available here); run `-DryRun` first.

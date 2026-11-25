@@ -1,0 +1,4 @@
+# Never commit a stream key or logs
+stream_config.psd1
+ffmpeg_stream.log
+ffmpeg_stream.log.1
