@@ -50,10 +50,22 @@ jobs:
 
       - name: Build (musl-gcc, static)
         working-directory: links-static-musl
+        env:
+          KEEP_WORK: '1'   # keep the build tree so a failure can be diagnosed below
         run: |
           set -eu
           sh build_links_static_v1.sh
           ls -l links-out
+
+      - name: Show build logs on failure
+        if: failure()
+        run: |
+          for f in /tmp/links_static.*/build/*/config.log; do
+            echo "=== $f (tail)"; tail -n 60 "$f"
+          done
+          for f in /tmp/links_static.*/build/*.log; do
+            echo "=== $f (tail)"; tail -n 25 "$f"
+          done
 
       - name: Verify the package
         working-directory: links-static-musl
