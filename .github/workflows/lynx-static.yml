@@ -94,14 +94,17 @@ jobs:
 
           "$d/lynx" -version
 
+          # Text example.com serves; match either phrase so a wording change does not break CI.
+          marker='example domain|documentation examples'
+
           echo "--- TLS: must succeed with the bundled CA file"
           page="$(timeout 90 "$d/lynx" -dump -nolist -connect_timeout=30 https://example.com 2>&1 || true)"
           echo "$page" | head -n 8
-          echo "$page" | grep -qi 'example domain' || { echo "FAIL: HTTPS fetch did not return the page" >&2; exit 1; }
+          echo "$page" | grep -qiE "$marker" || { echo "FAIL: HTTPS fetch did not return the page" >&2; exit 1; }
 
           echo "--- TLS: must FAIL when no trusted roots are available"
           bad="$(SSL_CERT_FILE=/dev/null timeout 90 "$d/lynx" -dump -nolist -connect_timeout=30 https://example.com 2>&1 || true)"
-          if echo "$bad" | grep -qi 'example domain'; then
+          if echo "$bad" | grep -qiE "$marker"; then
             echo "FAIL: certificate verification is not being enforced" >&2; exit 1
           fi
           echo "certificate verification enforced"
