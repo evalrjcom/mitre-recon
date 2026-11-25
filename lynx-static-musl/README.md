@@ -12,6 +12,9 @@ libssl, ncurses or zlib.
 | `lynx-2.9.0-static-x86_64-musl_pkg2.tar.gz` | Prebuilt x86_64 package (Lynx 2.9.0, OpenSSL 3.5.4, ncurses 6.4, zlib 1.3.1). |
 | `build_lynx_static_v6.sh` | POSIX-sh build script. Builds everything statically against musl in an Alpine container (docker or podman) or directly on Alpine. Defaults to Lynx 2.9.3. |
 | `local_build_v1.sh` | The manual build used to produce the prebuilt tarball on Ubuntu with `musl-tools`. It stops after `make install`; the packaging steps (launcher, CA bundle, terminfo, help files) are done by `build_lynx_static_v6.sh`, not by this file. |
+| `lynx_static_v6_program_description.md` | Guide 1: what the package is, contents, versions, limits. |
+| `lynx_static_v6_admin_guide.md` | Guide 2: install, rebuild, configure, certificates, security, troubleshooting. |
+| `lynx_static_v6_user_guide.md` | Guide 3: keys, command-line options, bookmarks, cookies, certificate warnings. |
 
 SHA-256 of the tarball:
 `49e3cba5710c5b3e82561e5d5b2b1f454bf98986dcbdf3213680339a0b4f25f1`
