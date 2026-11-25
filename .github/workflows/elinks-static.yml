@@ -1,0 +1,74 @@
+name: elinks-static-musl
+
+on:
+  push:
+    paths: ['elinks-static-musl/**', '.github/workflows/elinks-static.yml']
+    tags: ['elinks-v*']
+  pull_request:
+    paths: ['elinks-static-musl/**', '.github/workflows/elinks-static.yml']
+  workflow_dispatch:
+  schedule:
+    - cron: '17 4 1 * *'   # monthly: picks up new OpenSSL 3.5.x and CA bundle
+
+permissions:
+  contents: read
+
+concurrency:
+  group: elinks-static-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash -n elinks-static-musl/elinks_static_build_v6.sh
+      - run: shellcheck -S warning elinks-static-musl/elinks_static_build_v6.sh || true
+
+  build:
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: ['64', '32']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gcc make perl curl xz-utils git \
+            binutils autoconf automake pkg-config m4 linux-libc-dev gcc-multilib
+      - name: Build
+        working-directory: elinks-static-musl
+        env:
+          STRICT_PINS: '0'
+          SELFTEST_URL: https://example.com/
+          SELFTEST_STRICT: '1'
+        run: ./elinks_static_build_v6.sh --arch ${{ matrix.arch }}
+      - name: Verify checksum
+        working-directory: elinks-static-musl/dist
+        run: sha256sum -c *.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: elinks-static-${{ matrix.arch }}
+          path: |
+            elinks-static-musl/dist/*.tar.gz
+            elinks-static-musl/dist/*.sha256
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/elinks-v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: out/*
