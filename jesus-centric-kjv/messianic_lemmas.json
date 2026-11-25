@@ -1,0 +1,33 @@
+{
+  "comment": "Small curated lemma list inspired by MorphGNT / STEPBible tags for high-confidence Jesus/Messiah references. Not a full dump.",
+  "lemmas": [
+    "Ἰησοῦς",
+    "Χριστός",
+    "Μεσσίας",
+    "κύριος",
+    "θεός",
+    "υἱός",
+    "λόγος",
+    "ἀμνός",
+    "ποιμήν",
+    "δοῦλος",
+    "σπέρμα",
+    "ἄγγελος",
+    "Immanuel",
+    "Shiloh",
+    "Branch",
+    "Servant",
+    "Shepherd",
+    "Lamb",
+    "Word",
+    "Son",
+    "Christ",
+    "Messiah",
+    "Jesus"
+  ],
+  "english_triggers": [
+    "Jesus", "Christ", "Messiah", "Word", "Lamb", "Son of Man", "Son of God",
+    "Immanuel", "Prince of Peace", "Wonderful", "Counsellor", "Branch",
+    "Servant", "Shepherd", "Seed", "Shiloh"
+  ]
+}
