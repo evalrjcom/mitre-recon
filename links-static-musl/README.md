@@ -51,9 +51,15 @@ pinned SHA-256 for Links, OpenSSL or zlib does not match.
   (no dynamic section, no glibc symbols); TLS verification through the build
   machine's proxy succeeds with that proxy's CA and is rejected with the bundled
   roots only and with an empty trust store; the launcher works through a symlink.
+- Verified in GitHub Actions (run for commit 306f3cc, `ubuntu-latest`): the build, then
+  a direct HTTPS fetch of https://example.com through the launcher (bundled CA roots
+  only) succeeded, and the same fetch with no trusted roots was rejected.
 - Not tested: running on glibc 2.8 or an old kernel (musl expects roughly Linux
-  2.6.32 or newer); a plain un-proxied HTTPS page; gzip decoding against a live
-  server; IPv6 connections; the Alpine build path; `RUN_NET_TEST=1`.
+  2.6.32 or newer); gzip decoding against a live server (zlib is linked in, but no
+  check requests a compressed page); IPv6 connections; the Alpine build path.
+- The CI build is not bit-identical to the committed tarball (different build time
+  and toolchain state), so its SHA-256 differs; download the artifact or the
+  committed tarball, not both, and use the hash that matches your file.
 - The Links 2.29 tarball came from the Ubuntu archive (the Links site was
   unreachable from the build machine); its SHA-256 is pinned in the script but
   could not be compared with a value from the Links authors.

@@ -57,8 +57,9 @@ A Links built on a current distribution needs a newer glibc than 2.8 provides, s
 - A TLS connection through the build machine's HTTPS proxy, verified against that proxy's CA, with `ssl.certificates 2`: succeeded.
 - The same connection with the bundled roots only, and with an empty trust store: both rejected with "Invalid certificate".
 - The launcher works when called through a symlink.
+- GitHub Actions (`ubuntu-latest`, v2): the build, a direct HTTPS fetch of example.com with only the bundled roots (succeeded) and with no roots (rejected).
 
-**Not tested:** running on a glibc 2.8 machine or an old kernel (musl expects roughly Linux 2.6.32 or newer); a plain un-proxied HTTPS page (the build machine only reaches the internet through a proxy); gzip decoding against a live server; IPv6 connections; the build script on Alpine or with `RUN_NET_TEST=1`.
+**Not tested:** running on a glibc 2.8 machine or an old kernel (musl expects roughly Linux 2.6.32 or newer); gzip decoding against a live server (zlib is linked in, but no check requests a compressed page); IPv6 connections; the build script on Alpine or with `RUN_NET_TEST=1`.
 
 ## Provenance
 
