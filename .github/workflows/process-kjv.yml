@@ -1,0 +1,59 @@
+name: Process Jesus-Centric KJV
+
+on:
+  push:
+    paths:
+      - 'jesus-centric-kjv/**'
+      - '.github/workflows/process-kjv.yml'
+  pull_request:
+    paths:
+      - 'jesus-centric-kjv/**'
+  workflow_dispatch:
+
+jobs:
+  process:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Ensure input directory exists
+        run: |
+          mkdir -p jesus-centric-kjv/input jesus-centric-kjv/output
+
+      - name: Download public-domain KJV source if missing
+        run: |
+          if [ ! -f jesus-centric-kjv/input/kjv_gutenberg_10900.txt ]; then
+            echo "Input file missing — downloading Project Gutenberg #10900 mirror"
+            curl -fsSL -o jesus-centric-kjv/input/kjv_gutenberg_10900.txt \
+              "https://raw.githubusercontent.com/GITenberg/The-King-James-Bible_10900/master/10900.txt" \
+              || echo "Download failed; using existing file if present"
+          fi
+
+      - name: Run Jesus-centric processor
+        run: |
+          python3 jesus-centric-kjv/jesus_centric_kjv_processor.py \
+            jesus-centric-kjv/input/kjv_gutenberg_10900.txt \
+            jesus-centric-kjv/output/jesus_centric_kjv_all66.txt
+
+      - name: Commit regenerated output
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add jesus-centric-kjv/output/jesus_centric_kjv_all66.txt
+          if git diff --staged --quiet; then
+            echo "No changes to output"
+          else
+            git commit -m "Regenerate Jesus-centric KJV output [skip ci]"
+            git push
+          fi
